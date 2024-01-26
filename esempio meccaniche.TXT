@@ -1,0 +1,46 @@
++-------------------------+         +---------------------+        +-----------------------+
+|        Quiz Server      |         |      Quiz Client    |        |     Quiz Client      |
+|                         |         |                     |        |                       |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
+|    |  Accept       |    |         |    |  Connect    |  |        |    |  Connect    |    |
+|    |  Connections  |----|---------|----|  to Server  |  |        |    |  to Server  |    |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
+|          |              |         |          |           |        |          |          |
+|          v              |         |          v           |        |          v          |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
+|    |  Spawn Thread |    |         |    | Login       |  |        |    | Login       |    |
+|    |  for Player   |    |         |    | with        |  |        |    | with        |    |
+|    |               |    |         |    | Username    |  |        |    | Username    |    |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
+|          |              |         |          |           |        |          |          |
+|          v              |         |          v           |        |          v          |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
+|    | Handle Player |    |         |    | Receive     |  |        |    | Receive     |    |
+|    | Communication |----|---------|----| and Send    |  |        |    | and Send    |    |
+|    |               |    |         |    | Questions,  |  |        |    | Questions,  |    |
+|    |               |    |         |    | Answers,    |  |        |    | Answers,    |    |
+|    |               |    |         |    | Messages    |  |        |    | Messages    |    |
+|    +---------------+    |         |    +-------------+  |        |    +-------------+    |
++-------------------------+         +---------------------+        +-----------------------+
+
+
+Spiegazione delle componenti:
+
+Quiz Server: Accetta connessioni dai client,
+ gestisce la creazione di thread per ogni giocatore, 
+invia domande, riceve risposte e gestisce la logica del gioco 
+(penalità, espulsioni, ecc.).
+
+Quiz Client: Collega il giocatore al server, 
+esegue il login con un nome utente, riceve domande,
+ invia risposte e riceve messaggi dal server.
+
+Spawn Thread for Player: Il server crea un thread separato per ogni giocatore 
+per gestire la comunicazione con quel giocatore in modo asincrono.
+
+Handle Player Communication: Questo componente gestisce la comunicazione 
+tra il server e un giocatore specifico, inviando domande, 
+ricevendo risposte e gestendo la logica del gioco.
+
+L'architettura del server :
+utilizza thread separati per gestire giocatori multipli in modo concorrente.
