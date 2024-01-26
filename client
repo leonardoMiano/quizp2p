@@ -1,0 +1,63 @@
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == -1) {
+        std::cerr << "Errore nella creazione del socket del client." << std::endl;
+        return 1;
+    }
+
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(8080);
+    inet_pton(AF_INET, "127.0.0.1", &(serverAddr.sin_addr));
+
+    if (connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+        std::cerr << "Errore nella connessione al server." << std::endl;
+        close(clientSocket);
+        return 1;
+    }
+
+    // Login del giocatore
+    std::string username;
+    std::cout << "Inserisci il tuo nome utente: ";
+    std::getline(std::cin, username);
+    send(clientSocket, username.c_str(), username.size(), 0);
+
+    // Ricevi e stampa il messaggio di benvenuto
+    char welcomeMessage[1024];
+    recv(clientSocket, welcomeMessage, sizeof(welcomeMessage), 0);
+    std::cout << welcomeMessage << std::endl;
+
+    while (true) {
+        // Ricevi e stampa la domanda dal server
+        char question[1024];
+        recv(clientSocket, question, sizeof(question), 0);
+        std::cout << question << std::endl;
+
+        // Simula la risposta del giocatore
+        char playerAnswer[1024];
+        std::cout << "Inserisci la tua risposta (A, B, C o D): ";
+        std::cin.getline(playerAnswer, sizeof(playerAnswer));
+
+        send(clientSocket, playerAnswer, sizeof(playerAnswer), 0);
+
+        // Ricevi e stampa il messaggio successivo dal server
+        char nextMessage[1024];
+        recv(clientSocket, nextMessage, sizeof(nextMessage), 0);
+        std::cout << nextMessage << std::endl;
+
+        // Se il messaggio successivo indica l'espulsione, esci dal ciclo
+        if (strstr(nextMessage, "Espulsione") != nullptr) {
+            break;
+        }
+    }
+
+    // Chiusura del socket del client
+    close(clientSocket);
+
+    return 0;
+}
