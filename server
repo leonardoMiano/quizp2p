@@ -1,0 +1,125 @@
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <vector>
+#include <ctime>
+#include <pthread.h>
+
+struct PlayerProfile {
+    std::string username;
+    int incorrectAttempts;
+    time_t lastIncorrectTime;
+};
+
+bool isTimeToReconnect(const PlayerProfile& player) {
+    return (time(nullptr) - player.lastIncorrectTime) >= 10;
+}
+
+void* handlePlayer(void* args) {
+    int clientSocket = *((int*)args);
+    delete (int*)args;
+
+    PlayerProfile newPlayer;
+    newPlayer.incorrectAttempts = 0;
+    newPlayer.lastIncorrectTime = 0;
+
+    char usernameBuffer[1024];
+    recv(clientSocket, usernameBuffer, sizeof(usernameBuffer), 0);
+    newPlayer.username = usernameBuffer;
+
+    std::string welcomeMessage = "Benvenuto, " + newPlayer.username + "!\n";
+    send(clientSocket, welcomeMessage.c_str(), welcomeMessage.size(), 0);
+
+    bool isDisconnected = false;
+
+    std::cout << "Nuovo giocatore connesso: " << newPlayer.username << std::endl;
+
+    while (true) {
+        std::string question = "Qual è la capitale dell'Italia?\nA. Roma\nB. Milano\nC. Firenze\nD. Napoli\n";
+        send(clientSocket, question.c_str(), question.size(), 0);
+
+        char answerBuffer[1024];
+        recv(clientSocket, answerBuffer, sizeof(answerBuffer), 0);
+
+        std::string correctAnswer = "A";
+        if (answerBuffer[0] != correctAnswer[0]) {
+            newPlayer.incorrectAttempts++;
+
+            if (newPlayer.incorrectAttempts >= 3) {
+                isDisconnected = true;
+                send(clientSocket, "Hai superato il limite di risposte errate. Disconnessione temporanea.", 1024, 0);
+                break;
+            }
+            else {
+                std::string penaltyMessage = "Risposta errata. Penalità: " + std::to_string(newPlayer.incorrectAttempts) + "/3";
+                send(clientSocket, penaltyMessage.c_str(), penaltyMessage.size(), 0);
+            }
+        }
+        else {
+            newPlayer.incorrectAttempts = 0;
+        }
+
+        std::string message = "Prossima domanda...";
+        send(clientSocket, message.c_str(), message.size(), 0);
+    }
+
+    if (isDisconnected) {
+        sleep(10);
+    }
+
+    std::cout << "Giocatore disconnesso: " << newPlayer.username << std::endl;
+
+    close(clientSocket);
+    pthread_exit(NULL);
+}
+
+int main() {
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1) {
+        std::cerr << "Errore nella creazione del socket del server." << std::endl;
+        return 1;
+    }
+
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(8080);  // Cambiato dalla porta 12345
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1) {
+        std::cerr << "Errore nel binding del socket." << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    if (listen(serverSocket, 10) == -1) {
+        std::cerr << "Errore nell'inizio dell'ascolto delle connessioni." << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    std::vector<PlayerProfile> playerProfiles;
+
+    while (true) {
+        sockaddr_in clientAddr;
+        socklen_t clientAddrLen = sizeof(clientAddr);
+        int* clientSocket = new int(accept(serverSocket, (struct sockaddr*)&clientAddr, &clientAddrLen));
+        if (*clientSocket == -1) {
+            std::cerr << "Errore nell'accettare la connessione." << std::endl;
+            delete clientSocket;
+            continue;
+        }
+
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, handlePlayer, (void*)clientSocket) != 0) {
+            std::cerr << "Errore nella creazione del thread." << std::endl;
+            delete clientSocket;
+        }
+
+        pthread_detach(thread);
+    }
+
+    close(serverSocket);
+
+    return 0;
+}
